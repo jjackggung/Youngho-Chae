@@ -272,9 +272,9 @@
         <div class="label">조작법</div>
         <ul class="keys">
           <li>이동 <span><kbd>←</kbd> <kbd>→</kbd></span></li>
-          <li>회전 <span><kbd>↑</kbd> <kbd>Z</kbd></span></li>
+          <li>회전 <span><kbd>Space</kbd> <kbd>↑</kbd></span></li>
           <li>천천히 <kbd>↓</kbd></li>
-          <li>바로 내리기 <kbd>Space</kbd></li>
+          <li>바로 내리기 <kbd>Enter</kbd></li>
           <li>보관 <kbd>C</kbd></li>
           <li>일시정지 <kbd>P</kbd></li>
           <li>다시하기 <kbd>R</kbd></li>
@@ -538,6 +538,7 @@
     const k = e.key;
     if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(k)) e.preventDefault();
     if (k === 'Enter' && (state === 'ready' || state === 'over')) { start(); e.preventDefault(); return; }
+    if (k === 'Enter') { e.preventDefault(); if (!e.repeat) act('drop'); return; }
     if (k === 'r' || k === 'R') { start(); return; }
     if (k === 'p' || k === 'P' || k === 'Escape') { togglePause(); return; }
     switch (k) {
@@ -546,7 +547,7 @@
       case 'ArrowDown': act('down'); break;
       case 'ArrowUp': case 'x': case 'X': act('rotate'); break;
       case 'z': case 'Z': act('rotateL'); break;
-      case ' ': if (!e.repeat) act('drop'); break;
+      case ' ': if (!e.repeat) act('rotate'); break;
       case 'c': case 'C': case 'Shift': act('hold'); break;
     }
   });
