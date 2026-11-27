@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>쾅쾅 뭉치</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="땅을 쾅쾅 부수며 내려가 반짝 보석을 찾고 두더지 대왕에게서 바나나를 되찾는 2D 모험 게임">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&display=swap">
+<style>
+  /* 레이아웃: 화면을 가득 채운 게임 캔버스 위에, 두꺼운 갈색 테두리의 스티커 같은 패널과 버튼 */
+  :root {
+    --ink: #2b1d14;
+    --paper: #fff6dd;
+    --paper-2: #ffe9b8;
+    --banana: #ffd23f;
+    --banana-d: #e3a512;
+    --leaf: #3fae4f;
+    --berry: #ff4fa3;
+    --sky: #6fd0ff;
+    --night: #1d1420;
+    --muted: #7a6450;
+    --dim: rgba(20, 12, 8, 0.52);
+    --font-display: "Black Han Sans", "Jua", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    --font-ui: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    --tb: clamp(74px, 15vmin, 112px);
+    --ts: calc(var(--tb) * 0.72);
+    --dp: clamp(140px, 32vmin, 200px);
+    color-scheme: dark;
+  }
+  html { height: 100%; box-sizing: border-box; background: var(--night); }
+  *, *::before, *::after { box-sizing: inherit; }
+  body {
+    height: 100%; margin: 0; overflow: hidden; background: var(--night); color: var(--ink);
+    font-family: var(--font-ui); font-size: 18px; -webkit-text-size-adjust: 100%;
+  }
+  [hidden] { display: none !important; }
+  #app { position: relative; width: 100%; height: 100%; overflow: hidden; user-select: none; -webkit-user-select: none; }
+  #cv { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+  #safe-probe {
+    position: absolute; visibility: hidden; pointer-events: none; width: 0; height: 0;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  }
+
+  /* ---------- 버튼 ---------- */
+  .btn {
+    font-family: var(--font-ui); font-size: 20px; line-height: 1.15; color: var(--ink);
+    background: var(--paper); border: 3px solid var(--ink); border-radius: 16px;
+    padding: 10px 18px; min-height: 48px; box-shadow: 0 5px 0 var(--ink); cursor: pointer;
+    transition: transform 0.08s, box-shadow 0.08s, background 0.15s;
+  }
+  .btn:hover { background: #fffbef; }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+  .btn:focus-visible, .layer:focus-visible, .costume:focus-visible { outline: 4px solid var(--sky); outline-offset: 3px; }
+  .btn-big { font-size: 26px; background: var(--banana); padding: 12px 28px; min-height: 60px; }
+  .btn-big:hover { background: #ffdc5e; }
+  .btn.danger { background: #ffd6d6; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+  /* ---------- 화면 공통 ---------- */
+  .screen {
+    position: absolute; inset: 0; z-index: 10; display: flex; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: max(14px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-bottom, 0px));
+  }
+  .screen > * { margin: auto; }
+  .modal { background: var(--dim); }
+  .panel {
+    background: var(--paper); border: 4px solid var(--ink); border-radius: 26px;
+    box-shadow: 0 10px 0 rgba(43, 29, 20, 0.6); padding: 20px 22px 24px;
+    width: min(560px, 100%); display: flex; flex-direction: column; gap: 14px;
+  }
+  .panel.wide { width: min(880px, 100%); }
+  .panel h2 { font-family: var(--font-display); font-weight: normal; font-size: clamp(28px, 5vmin, 40px); margin: 0; line-height: 1.1; text-wrap: balance; }
+  .panel h3 { font-weight: normal; font-size: 21px; margin: 0 0 6px; }
+  .panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px;
+    background: var(--ink); color: var(--paper); font-size: 18px; font-variant-numeric: tabular-nums;
+  }
+  .pill b { font-weight: normal; color: var(--banana); }
+  .pill .gemi { color: var(--berry); }
+  .note { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.45; }
+
+  /* ---------- 처음 화면 ---------- */
+  #scr-title > .title-wrap { margin: auto auto auto clamp(0px, 5vw, 72px); }
+  .title-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: clamp(8px, 2vmin, 16px); width: min(560px, 60%); }
+  .logo {
+    font-family: var(--font-display); font-weight: normal; font-size: clamp(54px, 12vmin, 128px); line-height: 0.92; margin: 0;
+    color: var(--banana); transform: rotate(-4deg); transform-origin: left center;
+    text-shadow: 4px 0 0 var(--ink), -4px 0 0 var(--ink), 0 4px 0 var(--ink), 0 -4px 0 var(--ink),
+      3px 3px 0 var(--ink), -3px 3px 0 var(--ink), 3px -3px 0 var(--ink), -3px -3px 0 var(--ink), 0 11px 0 rgba(43, 29, 20, 0.55);
+  }
+  .logo span { display: block; }
+  .logo span + span { color: var(--paper); margin-left: 0.55em; }
+  .tagline { margin: 0; font-size: clamp(19px, 3.4vmin, 30px); color: #ffffff; text-shadow: 0 3px 0 var(--ink), 2px 0 0 var(--ink), -2px 0 0 var(--ink); }
+  .bubble {
+    position: relative; margin: 2px 0 6px; background: var(--paper); border: 3px solid var(--ink); border-radius: 18px;
+    padding: 8px 14px; font-size: clamp(17px, 2.8vmin, 22px);
+  }
+  .bubble::after {
+    content: ""; position: absolute; left: 26px; bottom: -14px; width: 18px; height: 18px; background: var(--paper);
+    border-right: 3px solid var(--ink); border-bottom: 3px solid var(--ink); transform: rotate(45deg) skew(8deg, 8deg);
+  }
+  .title-menu { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+  .rotate-hint { display: none; margin: 0; color: #fff; font-size: 15px; text-shadow: 0 2px 0 var(--ink); }
+  body.portrait #scr-title > .title-wrap { margin: 5vh auto auto; }
+  body.portrait .title-wrap { width: 100%; align-items: center; text-align: center; }
+  body.portrait .logo { transform-origin: center; }
+  body.portrait .title-menu { align-items: center; }
+  body.portrait .title-menu .row { justify-content: center; }
+  body.portrait .rotate-hint { display: block; }
+
+  /* ---------- 이야기 / 엔딩 ---------- */
+  #scr-story > .story-box, #scr-ending > .panel { margin: 3vh auto auto; }
+  .story-box {
+    width: min(760px, 100%); background: rgba(255, 246, 221, 0.95); border: 4px solid var(--ink); border-radius: 24px;
+    box-shadow: 0 8px 0 rgba(43, 29, 20, 0.55); padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .story-text { margin: 0; font-size: clamp(21px, 3.8vmin, 32px); line-height: 1.45; text-wrap: pretty; }
+  .story-box .row { justify-content: flex-end; }
+  .story-dots { margin-right: auto; letter-spacing: 4px; color: var(--muted); }
+  #scr-ending > .panel { background: rgba(255, 246, 221, 0.96); }
+  .end-text { margin: 0; font-size: clamp(19px, 3.2vmin, 26px); line-height: 1.45; }
+
+  /* ---------- 땅속 지도 ---------- */
+  .village {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 18px; border: 3px solid var(--ink);
+    background: linear-gradient(180deg, #9fe0ff 0%, #c9f1ff 55%, #6cc070 56%, #4fa35a 100%); font-size: 20px;
+  }
+  .village small { font-size: 15px; color: #1f4a28; }
+  .layers { display: flex; flex-direction: column; gap: 12px; position: relative; }
+  .layers::before {
+    content: ""; position: absolute; left: 44px; top: -12px; bottom: 8px; border-left: 5px dotted rgba(43, 29, 20, 0.45); z-index: 0;
+  }
+  .layer {
+    position: relative; z-index: 1; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "floor name status" "floor gems status"; align-items: center; gap: 2px 12px;
+    text-align: left; padding: 10px 14px; min-height: 66px; border: 3px solid var(--ink); border-radius: 18px;
+    box-shadow: 0 5px 0 var(--ink); font-family: var(--font-ui); color: var(--ink); cursor: pointer; font-size: 18px;
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .layer:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+  .layer-floor {
+    grid-area: floor; font-family: var(--font-display); font-size: 20px; min-width: 62px; text-align: center;
+    background: rgba(255, 255, 255, 0.78); border: 2px solid var(--ink); border-radius: 12px; padding: 4px 8px; color: var(--ink);
+  }
+  .layer-name { grid-area: name; font-size: 22px; }
+  .layer-gems { grid-area: gems; font-size: 19px; letter-spacing: 2px; }
+  .star { color: rgba(43, 29, 20, 0.28); }
+  .star.need { color: rgba(43, 29, 20, 0.45); }
+  .star.got { color: var(--berry); text-shadow: 0 1px 0 var(--ink); }
+  .layer-status { grid-area: status; font-size: 16px; text-align: right; }
+  .layer-jungle { background: linear-gradient(180deg, #a6eb8f, #c79562); }
+  .layer-sand { background: linear-gradient(180deg, #ffe3a0, #e7a061); }
+  .layer-ice { background: linear-gradient(180deg, #f1fbff, #9fdcf3); }
+  .layer-lava { background: linear-gradient(180deg, #b0857c, #ff8a3d); }
+  .layer-boss { background: linear-gradient(180deg, #8a6aa8, #4a2f66); color: var(--paper); }
+  .layer-boss .star { color: transparent; }
+  .layer.locked { filter: grayscale(0.85) brightness(0.88); cursor: not-allowed; box-shadow: 0 3px 0 var(--ink); }
+  .layer.next { outline: 4px solid var(--banana); outline-offset: 2px; animation: bob 0.9s ease-in-out infinite alternate; }
+  .lock { margin-right: 4px; }
+
+  /* ---------- 기타 패널 ---------- */
+  .small { width: min(420px, 100%); align-items: stretch; }
+  .small .btn { width: 100%; }
+  .toggles { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+  .toggles label, .field { display: flex; align-items: center; gap: 8px; font-size: 19px; cursor: pointer; }
+  .toggles input { width: 26px; height: 26px; accent-color: var(--leaf); }
+  .field { justify-content: space-between; flex-wrap: wrap; }
+  .field input, .field select {
+    font-family: var(--font-ui); font-size: 20px; color: var(--ink); background: #ffffff;
+    border: 3px solid var(--ink); border-radius: 12px; padding: 6px 10px; min-height: 44px; min-width: 0; flex: 1 1 160px; max-width: 260px;
+  }
+  .field input:focus-visible, .field select:focus-visible { outline: 4px solid var(--sky); outline-offset: 2px; }
+  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+  .stats div { background: var(--paper-2); border: 3px solid var(--ink); border-radius: 16px; padding: 8px 12px; }
+  .stats dt { font-size: 15px; color: var(--muted); }
+  .stats dd { margin: 2px 0 0; font-size: 26px; font-variant-numeric: tabular-nums; }
+  .clear-tip, .end-tip { margin: 0; font-size: 17px; color: var(--muted); }
+  .reward { background: #fff1a8; border: 3px dashed var(--ink); border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .reward-label { margin: 0; font-size: 15px; color: var(--muted); letter-spacing: 1px; }
+  .reward-title { margin: 0; font-family: var(--font-display); font-size: 30px; }
+  .reward-text { margin: 0; font-size: 19px; line-height: 1.4; }
+  .closet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 10px; }
+  .costume {
+    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px 10px; font-family: var(--font-ui);
+    background: #ffffff; border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); cursor: pointer; color: var(--ink);
+  }
+  .costume.selected { background: var(--banana); }
+  .costume.locked { background: #eee5d6; cursor: not-allowed; }
+  .costume canvas { width: 96px; height: 96px; }
+  .costume-name { font-size: 18px; }
+  .costume-req { font-size: 14px; color: var(--muted); }
+  .help-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .help-card { background: #ffffff; border: 3px solid var(--ink); border-radius: 18px; padding: 12px 14px; }
+  .help-card ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 17px; }
+  .help-card b { display: inline-block; min-width: 2.2em; padding: 0 6px; border-radius: 8px; background: var(--paper-2); border: 2px solid var(--ink); font-weight: normal; text-align: center; }
+  kbd {
+    display: inline-block; min-width: 1.7em; padding: 1px 6px; margin-right: 2px; font-family: var(--font-ui); font-size: 15px; text-align: center;
+    background: var(--paper); border: 2px solid var(--ink); border-bottom-width: 4px; border-radius: 8px;
+  }
+
+  /* ---------- 게임 중 ---------- */
+  #topbar { position: absolute; z-index: 6; top: max(10px, env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); }
+  #btn-pause {
+    width: 54px; height: 54px; border-radius: 50%; border: 3px solid var(--ink); background: var(--paper);
+    font-family: var(--font-ui); font-size: 20px; color: var(--ink); box-shadow: 0 4px 0 var(--ink); cursor: pointer; padding: 0;
+  }
+  #btn-pause:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+  #touch { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+  #dpad {
+    position: absolute; left: max(18px, env(safe-area-inset-left, 0px)); bottom: max(18px, env(safe-area-inset-bottom, 0px));
+    width: var(--dp); height: var(--dp); border-radius: 50%; pointer-events: auto; touch-action: none;
+    background: rgba(255, 248, 225, 0.16); border: 3px solid rgba(43, 29, 20, 0.5); box-shadow: inset 0 0 0 7px rgba(255, 255, 255, 0.07);
+  }
+  #dpad .d {
+    position: absolute; width: 36%; height: 36%; display: grid; place-items: center; border-radius: 30%;
+    font-size: calc(var(--dp) * 0.15); color: rgba(255, 255, 255, 0.92); background: rgba(43, 29, 20, 0.38);
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); pointer-events: none;
+  }
+  #dpad .up { left: 32%; top: 3%; }
+  #dpad .down { left: 32%; bottom: 3%; }
+  #dpad .left { left: 3%; top: 32%; }
+  #dpad .right { right: 3%; top: 32%; }
+  #dpad .d.on { background: rgba(255, 210, 63, 0.9); color: var(--ink); text-shadow: none; }
+  #tbtns {
+    position: absolute; right: max(14px, env(safe-area-inset-right, 0px)); bottom: max(14px, env(safe-area-inset-bottom, 0px));
+    width: calc(var(--tb) * 2.8); height: calc(var(--tb) * 2); pointer-events: none;
+  }
+  .tb {
+    position: absolute; pointer-events: auto; touch-action: none; padding: 0; border-radius: 50%; border: 4px solid var(--ink);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1;
+    font-family: var(--font-ui); font-size: calc(var(--tb) * 0.34); color: var(--ink);
+    box-shadow: 0 5px 0 rgba(43, 29, 20, 0.6); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; opacity: 0.93;
+  }
+  .tb b { font-weight: normal; font-size: calc(var(--tb) * 0.17); margin-top: 3px; }
+  .tb svg { width: 40%; height: 40%; fill: var(--ink); }
+  .tb.on { transform: translateY(4px); box-shadow: 0 1px 0 rgba(43, 29, 20, 0.6); filter: brightness(1.12); }
+  .tb-jump { width: var(--tb); height: var(--tb); right: 0; bottom: 0; background: #6fd0ff; }
+  .tb-punch { width: var(--tb); height: var(--tb); right: calc(var(--tb) * 1.12); bottom: calc(var(--tb) * 0.16); background: #ff8a4c; }
+  .tb-clap { width: var(--ts); height: var(--ts); right: calc(var(--tb) * 0.14); bottom: calc(var(--tb) * 1.12); background: #ffd23f; }
+  .tb-grab { width: var(--ts); height: var(--ts); right: calc(var(--tb) * 1.26); bottom: calc(var(--tb) * 1.24); background: #9be38a; }
+  .tb-super { width: var(--ts); height: var(--ts); right: calc(var(--tb) * 2.08); bottom: calc(var(--tb) * 0.82); background: #d7c2ff; }
+  .tb-super.ready { background: #ffe066; animation: pulse 0.55s ease-in-out infinite alternate; }
+
+  @keyframes bob { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.1); } }
+
+  @media (max-height: 460px) {
+    .logo { font-size: clamp(44px, 13vmin, 64px); }
+    .tagline { font-size: 17px; }
+    .bubble { font-size: 15px; padding: 5px 12px; }
+    .btn { font-size: 17px; min-height: 42px; padding: 7px 14px; }
+    .btn-big { font-size: 21px; min-height: 50px; padding: 8px 22px; }
+    .title-wrap { gap: 6px; }
+    .panel { padding: 14px 16px 18px; gap: 10px; border-radius: 22px; }
+    .story-text { font-size: 19px; }
+    .layer { min-height: 54px; padding: 6px 12px; }
+    .layer-name { font-size: 19px; }
+  }
+  @media (max-width: 480px) {
+    .stats dd { font-size: 22px; }
+    .layer-status { font-size: 14px; }
+    .layers::before { left: 38px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .layer.next, .tb-super.ready { animation: none; }
+    .btn, .layer { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv" aria-label="쾅쾅 뭉치 게임 화면"></canvas>
+  <div id="safe-probe" aria-hidden="true"></div>
+
+  <div id="topbar" hidden>
+    <button id="btn-pause" type="button" aria-label="잠깐 멈춤">❚❚</button>
+  </div>
+
+  <div id="touch" hidden>
+    <div id="dpad" aria-hidden="true">
+      <span class="d up">▲</span><span class="d left">◀</span><span class="d right">▶</span><span class="d down">▼</span>
+    </div>
+    <div id="tbtns">
+      <button type="button" class="tb tb-super" data-act="super" aria-label="슈퍼 변신">⭐<b>슈퍼</b></button>
+      <button type="button" class="tb tb-grab" data-act="grab" aria-label="잡기와 던지기">✋<b>잡기</b></button>
+      <button type="button" class="tb tb-clap" data-act="clap" aria-label="짝짝 보석 찾기">👏<b>짝짝</b></button>
+      <button type="button" class="tb tb-punch" data-act="punch" aria-label="펀치">👊<b>펀치</b></button>
+      <button type="button" class="tb tb-jump" data-act="jump" aria-label="점프"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 22 13h-6v8.5H8V13H2z"/></svg><b>점프</b></button>
+    </div>
+  </div>
+
+  <section id="scr-title" class="screen" aria-label="처음 화면">
+    <div class="title-wrap">
+      <h1 class="logo"><span>쾅쾅</span><span>뭉치</span></h1>
+      <p class="tagline">땅속 바나나 대모험</p>
+      <p id="title-bubble" class="bubble">진우야, 같이 바나나 찾으러 가자!</p>
+      <div class="title-menu">
+        <button class="btn btn-big" type="button" data-act="start" data-primary>시작하기 ▶</button>
+        <div class="row">
+          <button class="btn" type="button" data-act="closet">옷장</button>
+          <button class="btn" type="button" data-act="help">조작 방법</button>
+          <button class="btn" type="button" data-act="settings">설정</button>
+        </div>
+      </div>
+      <p class="rotate-hint">휴대폰을 가로로 돌리면 더 넓게 보여요</p>
+    </div>
+  </section>
+
+  <section id="scr-story" class="screen" aria-label="이야기" hidden>
+    <div class="story-box">
+      <p class="story-text"></p>
+      <div class="row">
+        <span class="story-dots" aria-hidden="true"></span>
+        <button class="btn" type="button" data-act="story-skip">건너뛰기</button>
+        <button class="btn btn-big" type="button" data-act="story-next" data-primary>다음 ▶</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="scr-map" class="screen modal" aria-label="땅속 지도" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>땅속 지도</h2>
+        <div class="row">
+          <span class="pill"><span class="gemi">★</span><b id="map-gems">0 / 20</b></span>
+          <span class="pill">🍌<b id="map-bananas">0</b></span>
+        </div>
+      </div>
+      <div class="village">바나나 마을 <small>보석을 찾아 한 층씩 내려가요</small></div>
+      <div id="map-list" class="layers"></div>
+      <div class="row">
+        <button class="btn" type="button" data-act="title">처음 화면</button>
+        <button class="btn" type="button" data-act="story-again">이야기 다시 보기</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="scr-pause" class="screen modal" aria-label="잠깐 멈춤" hidden>
+    <div class="panel small">
+      <h2>잠깐 쉬어요</h2>
+      <button class="btn btn-big" type="button" data-act="resume" data-primary>계속하기 ▶</button>
+      <button class="btn" type="button" data-act="retry">이 층 처음부터</button>
+      <button class="btn" type="button" data-act="map">지도로 나가기</button>
+      <div class="toggles">
+        <label><input type="checkbox" id="pause-sfx"> 효과음</label>
+        <label><input type="checkbox" id="pause-music"> 음악</label>
+      </div>
+    </div>
+  </section>
+
+  <section id="scr-clear" class="screen modal" aria-label="층 클리어" hidden>
+    <div class="panel">
+      <h2 class="clear-title">1층 클리어!</h2>
+      <dl class="stats">
+        <div><dt>이번에 모은 바나나</dt><dd class="clear-bananas">0개</dd></div>
+        <div><dt>찾은 보석</dt><dd class="clear-gems">0 / 5개</dd></div>
+      </dl>
+      <p class="clear-tip"></p>
+      <div class="reward" hidden>
+        <p class="reward-label">새로운 힘!</p>
+        <p class="reward-title"></p>
+        <p class="reward-text"></p>
+      </div>
+      <div class="row">
+        <button class="btn btn-big" type="button" data-act="next" data-primary>다음 층으로!</button>
+        <button class="btn" type="button" data-act="map">지도 보기</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="scr-ending" class="screen" aria-label="엔딩" hidden>
+    <div class="panel">
+      <h2>바나나를 되찾았어요!</h2>
+      <p class="end-text"></p>
+      <dl class="stats">
+        <div><dt>찾은 보석</dt><dd class="end-gems">0 / 20개</dd></div>
+        <div><dt>지금까지 모은 바나나</dt><dd class="end-bananas">0개</dd></div>
+      </dl>
+      <p class="end-tip"></p>
+      <div class="row">
+        <button class="btn btn-big" type="button" data-act="map" data-primary>지도 보기</button>
+        <button class="btn" type="button" data-act="title">처음 화면</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="scr-closet" class="screen modal" aria-label="옷장" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>뭉치 옷장</h2>
+        <span class="pill">🍌<b id="closet-bananas">0</b></span>
+      </div>
+      <p class="note">바나나를 모으면 새 모자를 쓸 수 있어요. 보석을 모두 찾으면 황금 왕관!</p>
+      <div id="closet-grid" class="closet-grid"></div>
+      <div class="row"><button class="btn btn-big" type="button" data-act="title" data-primary>다 골랐어요</button></div>
+    </div>
+  </section>
+
+  <section id="scr-settings" class="screen modal" aria-label="설정" hidden>
+    <div class="panel">
+      <h2>설정</h2>
+      <label class="field" for="set-name"><span>이름</span><input id="set-name" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="이름을 써 주세요"></label>
+      <div class="toggles">
+        <label><input type="checkbox" id="set-sfx"> 효과음</label>
+        <label><input type="checkbox" id="set-music"> 배경음악</label>
+        <label><input type="checkbox" id="set-voice"> 목소리 안내</label>
+      </div>
+      <p id="voice-note" class="note" hidden>이 기기에는 한국어 목소리가 없어서 목소리 안내는 나오지 않아요. 글자 안내는 그대로 보여요.</p>
+      <label class="field" for="set-touch"><span>화면 버튼</span>
+        <select id="set-touch">
+          <option value="auto">자동 (터치 화면이면 보이기)</option>
+          <option value="on">항상 보이기</option>
+          <option value="off">숨기기</option>
+        </select>
+      </label>
+      <div class="row">
+        <button class="btn" type="button" data-act="fullscreen">전체 화면</button>
+        <button class="btn danger" type="button" id="btn-reset">처음부터 다시 하기</button>
+      </div>
+      <div class="row"><button class="btn btn-big" type="button" data-act="title" data-primary>확인</button></div>
+    </div>
+  </section>
+
+  <section id="scr-help" class="screen modal" aria-label="조작 방법" hidden>
+    <div class="panel wide">
+      <h2>조작 방법</h2>
+      <div class="help-grid">
+        <div class="help-card">
+          <h3>태블릿 · 휴대폰</h3>
+          <ul>
+            <li><b>◀ ▶</b> 걷기</li>
+            <li><b>점프</b> 폴짝 뛰기</li>
+            <li><b>펀치</b> 쾅! 꾹 누르면 계속 쳐요</li>
+            <li><b>▼</b> + <b>펀치</b> 땅 파고 내려가기</li>
+            <li><b>▲</b> + <b>펀치</b> 위로 펀치</li>
+            <li>공중에서 <b>▼</b> + <b>펀치</b> 쿵 내려찍기</li>
+            <li><b>짝짝</b> 숨은 보석 찾기</li>
+            <li><b>잡기</b> 블록 들기 · 던지기 (1층을 깨면)</li>
+            <li><b>슈퍼</b> 변신 (2층을 깨면)</li>
+          </ul>
+        </div>
+        <div class="help-card">
+          <h3>키보드</h3>
+          <ul>
+            <li><kbd>←</kbd><kbd>→</kbd> 걷기</li>
+            <li><kbd>스페이스</kbd> 점프</li>
+            <li><kbd>Z</kbd> 펀치 (꾹 누르면 계속)</li>
+            <li><kbd>↓</kbd>+<kbd>Z</kbd> 땅 파기</li>
+            <li><kbd>↑</kbd>+<kbd>Z</kbd> 위로 펀치</li>
+            <li><kbd>C</kbd> 짝짝 보석 찾기</li>
+            <li><kbd>X</kbd> 잡기 · 던지기</li>
+            <li><kbd>V</kbd> 슈퍼 변신</li>
+            <li><kbd>Esc</kbd> 잠깐 멈춤</li>
+          </ul>
+        </div>
+        <div class="help-card">
+          <h3>게임패드 (스위치 프로콘 등)</h3>
+          <ul>
+            <li><b>스틱</b> 걷기 · 방향</li>
+            <li><b>B</b> 점프</li>
+            <li><b>Y</b> 펀치</li>
+            <li><b>A</b> 잡기 · 던지기</li>
+            <li><b>X</b> 짝짝</li>
+            <li><b>L R</b> 슈퍼 변신</li>
+            <li><b>+</b> 잠깐 멈춤</li>
+          </ul>
+          <p class="note">버튼 위치 기준이에요. 엑스박스 패드는 A 점프, X 펀치.</p>
+        </div>
+      </div>
+      <p class="note">벽 쪽으로 점프한 다음 화살표를 꾹 누르면 벽을 타고 올라가요. 하트가 다 없어져도 깃발에서 다시 시작하고, 모은 바나나와 보석은 그대로예요.</p>
+      <div class="row"><button class="btn btn-big" type="button" data-act="title" data-primary>알겠어요!</button></div>
+    </div>
+  </section>
+</div>
+<script src="js/maps.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/art.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
